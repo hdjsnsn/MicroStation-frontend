@@ -1,6 +1,50 @@
+<template>
+  <a-layout-header class="global-header">
+    <a-row :wrap="false" style="width: 100%">
+      <a-col :span="6">
+        <div class="left">
+          <img class="logo" src="@/assets/logo.png" alt="logo" />
+          <span class="title">Micro Station</span>
+        </div>
+      </a-col>
+
+      <a-col :span="12">
+        <div class="center">
+          <a-menu
+            mode="horizontal"
+            theme="light"
+            :selected-keys="selectedKeys"
+            :items="menuItems"
+            @click="handleMenuClick"
+          />
+        </div>
+      </a-col>
+
+      <a-col :span="6">
+        <div class="right">
+          <div v-if="loginUserStore.loginUser.id">
+            <a-space>
+              <a-avatar :src="loginUserStore.loginUser.userAvatar"/>
+              {{loginUserStore.loginUser.userName ?? '无名'}}
+            </a-space>
+          </div>
+          <div v-else>
+            <a-button type="primary" href="/user/login">登录</a-button>
+          </div>
+        </div>
+      </a-col>
+    </a-row>
+  </a-layout-header>
+</template>
+
+
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useLoginUserStore } from '@/stores/loginUser.ts'
+
+// 获取用户登录状态
+const loginUserStore = useLoginUserStore();
 
 type MenuItem = {
   key: string
@@ -25,29 +69,6 @@ const handleMenuClick = (info: { key: string }) => {
   }
 }
 </script>
-
-<template>
-  <a-layout-header class="global-header">
-    <div class="left">
-      <img class="logo" src="@/assets/logo.png" alt="logo" />
-      <span class="title">Micro Station</span>
-    </div>
-
-    <div class="center">
-      <a-menu
-        mode="horizontal"
-        theme="light"
-        :selected-keys="selectedKeys"
-        :items="menuItems"
-        @click="handleMenuClick"
-      />
-    </div>
-
-    <div class="right">
-      <a-button type="primary">登录</a-button>
-    </div>
-  </a-layout-header>
-</template>
 
 <style scoped>
 .global-header {
@@ -90,8 +111,10 @@ const handleMenuClick = (info: { key: string }) => {
 }
 
 .right {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
   flex-shrink: 0;
-  margin-left: auto;
 }
 
 @media (max-width: 768px) {
