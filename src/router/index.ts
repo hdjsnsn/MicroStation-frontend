@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomePage from '@/pages/HomePage.vue'
 import LoginPage from '@/pages/login/LoginPage.vue'
 import RegisterPage from '@/pages/login/RegisterPage.vue'
+import UserAuthLayout from '@/pages/login/UserAuthLayout.vue'
 import UserManagePage from '@/pages/admin/UserManagePage.vue'
 
 const router = createRouter({
@@ -14,17 +15,23 @@ const router = createRouter({
       component: HomePage,
     },
     {
-      path: '/user/login',
-      name: '用户登录',
-      component: LoginPage,
+      path: '/user',
+      component: UserAuthLayout,
+      children: [
+        {
+          path: 'login',
+          name: '用户登录',
+          component: LoginPage,
+        },
+        {
+          path: 'register',
+          name: '用户注册',
+          component: RegisterPage,
+        },
+      ],
     },
     {
-      path: '/user/register',
-      name: '用户注册',
-      component: RegisterPage,
-    },
-    {
-      path: '/',
+      path: '/admin/userManage',
       name: '用户管理',
       component: UserManagePage,
     },

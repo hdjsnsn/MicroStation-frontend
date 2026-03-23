@@ -29,21 +29,6 @@ const hideGlobalLayout = computed(() => hideLayoutRoutes.includes(route.path))
 
 .basic-layout-content {
   flex: 1;
-  padding: 16px;
   background-color: #f5f5f5;
-}
-
-.basic-layout-content--full {
-  padding: 0;
-}
-
-@media (min-width: 768px) {
-  .basic-layout-content {
-    padding: 24px;
-  }
-
-  .basic-layout-content--full {
-    padding: 0;
-  }
 }
 </style>

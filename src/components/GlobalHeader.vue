@@ -1,50 +1,55 @@
 <template>
   <a-layout-header class="global-header">
-    <a-row :wrap="false" style="width: 100%">
-      <a-col :span="6">
-        <div class="left">
-          <img class="logo" src="@/assets/logo.png" alt="logo" />
-          <span class="title">Micro Station</span>
-        </div>
-      </a-col>
+    <div class="global-header-inner">
+      <!-- 左侧：Logo + 标题 -->
+      <div class="left">
+        <img class="logo" src="@/assets/logo.png" alt="logo" />
+        <span class="title">Micro Station</span>
+      </div>
 
-      <a-col :span="12">
-        <div class="center">
-          <a-menu
-            mode="horizontal"
-            theme="light"
-            :selected-keys="selectedKeys"
-            :items="menuItems"
-            @click="handleMenuClick"
-          />
-        </div>
-      </a-col>
+      <!-- 中侧：菜单（纯 flex 居中，避免 absolute 导致的错位） -->
+      <div class="center">
+        <a-menu mode="horizontal" theme="light" :selected-keys="selectedKeys" :items="menuItems"
+          :disabledOverflow="true" @click="handleMenuClick" />
+      </div>
 
-      <a-col :span="6">
-        <div class="right">
-          <div v-if="loginUserStore.loginUser.id">
-            <a-space>
-              <a-avatar :src="loginUserStore.loginUser.userAvatar"/>
-              {{loginUserStore.loginUser.userName ?? '无名'}}
-            </a-space>
-          </div>
-          <div v-else>
-            <a-button type="primary" href="/user/login">登录</a-button>
-          </div>
+      <!-- 右侧：用户信息/登录按钮 -->
+      <div class="right">
+        <div v-if="loginUserStore.loginUser.id">
+          <a-dropdown :trigger="['click']" placement="bottomRight">
+            <a class="user-dropdown-trigger" @click.prevent>
+              <a-space>
+                <a-avatar :src="loginUserStore.loginUser.userAvatar" />
+                <span class="user-name">{{ loginUserStore.loginUser.userName ?? '无名' }}</span>
+              </a-space>
+            </a>
+            <template #overlay>
+              <a-menu @click="handleUserMenuClick">
+                <a-menu-item style="color: red; text-align: center" key="logout"> 登出 </a-menu-item>
+              </a-menu>
+            </template>
+          </a-dropdown>
         </div>
-      </a-col>
-    </a-row>
+        <div v-else>
+          <a-button type="primary" href="/user/login">登录</a-button>
+        </div>
+      </div>
+    </div>
   </a-layout-header>
 </template>
 
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useLoginUserStore } from '@/stores/loginUser.ts'
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { logout } from '@/api/loginController'
+import { useLoginUserStore } from '@/stores/loginUser'
+import { notify } from '@/utils/notify'
 
 // 获取用户登录状态
-const loginUserStore = useLoginUserStore();
+const loginUserStore = useLoginUserStore()
+const router = useRouter()
+const route = useRoute()
 
 type MenuItem = {
   key: string
@@ -52,20 +57,63 @@ type MenuItem = {
   path: string
 }
 
-const router = useRouter()
-
-const menuItems = ref<MenuItem[]>([
+// 菜单配置项
+const originItems = ref<MenuItem[]>([
   { key: 'home', label: '首页', path: '/' },
-  { key: 'about', label: '关于', path: '/about' },
+  { key: 'userManage', label: '管理', path: '/admin/userManage' }
 ])
 
-const selectedKeys = ref<string[]>(['home'])
+// 过滤菜单项
+const filterMenus = (menus = [] as MenuItem[]) => {
+  return menus?.filter((menu) => {
+    const menuPath = menu?.path as string
+    if (menuPath?.startsWith('/admin')) {
+      const loginUser = loginUserStore.loginUser
+      if (!loginUser || loginUser.userRole !== 'admin') {
+        return false
+      }
+    }
+    return true
+  })
+}
+
+// 展示在菜单的路由数组
+const menuItems = computed<MenuItem[]>(() => filterMenus(originItems.value))
+
+// 根据当前路由确定选中项（避免固定写死导致的视觉错位）
+const selectedKeys = computed<string[]>(() => {
+  if (route.path === '/') {
+    return ['home']
+  }
+  if (route.path.startsWith('/admin')) {
+    return ['userManage']
+  }
+  return ['home']
+})
 
 const handleMenuClick = (info: { key: string }) => {
   const target = menuItems.value.find((item) => item.key === info.key)
   if (target) {
-    selectedKeys.value = [target.key]
     router.push(target.path)
+  }
+}
+
+/** 用户名下拉菜单：登出 */
+const handleUserMenuClick = async (info: { key: string }) => {
+  if (info.key !== 'logout') {
+    return
+  }
+  try {
+    const res = await logout()
+    if (res.data.code === 0) {
+      loginUserStore.clearLoginUser()
+      notify.success('已登出')
+      await router.push('/user/login')
+      return
+    }
+    notify.error(res.data.message || '登出失败')
+  } catch {
+    notify.error('登出失败，请稍后重试')
   }
 }
 </script>
@@ -78,6 +126,13 @@ const handleMenuClick = (info: { key: string }) => {
   background: #ffffff;
   color: #000000;
   position: relative;
+}
+
+/* 纯 flex 布局：左/中/右三段式，菜单永远居中 */
+.global-header-inner {
+  width: 100%;
+  display: flex;
+  align-items: center;
 }
 
 .left {
@@ -100,11 +155,7 @@ const handleMenuClick = (info: { key: string }) => {
 }
 
 .center {
-  /* 绝对定位，保证菜单在整个导航栏里严格居中 */
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  flex: 1;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -113,8 +164,21 @@ const handleMenuClick = (info: { key: string }) => {
 .right {
   display: flex;
   justify-content: flex-end;
-  width: 100%;
   flex-shrink: 0;
+}
+
+.user-dropdown-trigger {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  color: inherit;
+}
+
+.user-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 768px) {
@@ -123,8 +187,6 @@ const handleMenuClick = (info: { key: string }) => {
   }
 
   .center {
-    position: static;
-    transform: none;
     justify-content: flex-end;
   }
 
@@ -133,4 +195,3 @@ const handleMenuClick = (info: { key: string }) => {
   }
 }
 </style>
-

@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { message } from 'ant-design-vue'
+import { notify } from '@/utils/notify'
 
 // 创建 Axios 实例
 const myAxios = axios.create({
@@ -31,7 +31,7 @@ myAxios.interceptors.response.use(
         !response.request.responseURL.includes('user/get/login') &&
         !window.location.pathname.includes('/user/login')
       ) {
-        message.warning('请先登录')
+        notify.warning('请先登录')
         window.location.href = `/user/login?redirect=${window.location.href}`
       }
     }
