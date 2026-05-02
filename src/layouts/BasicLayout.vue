@@ -17,7 +17,12 @@ import GlobalFooter from '@/components/GlobalFooter.vue'
 
 const route = useRoute()
 const hideLayoutRoutes = ['/user/login', '/user/register']
-const hideGlobalLayout = computed(() => hideLayoutRoutes.includes(route.path))
+const hideGlobalLayout = computed(() => {
+  if (hideLayoutRoutes.includes(route.path)) {
+    return true
+  }
+  return route.path.startsWith('/app/chat/')
+})
 </script>
 
 <style scoped>

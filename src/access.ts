@@ -18,9 +18,23 @@ router.beforeEach(async (to, from, next) => {
     firstFetchLoginUser = false
   }
   const toUrl = to.fullPath
-  if (toUrl.startsWith('/admin')) {
+  if (toUrl.startsWith('/admin/userManage')) {
     if (!loginUser || loginUser.userRole !== 'admin') {
       notify.error('没有权限')
+      next(`/user/login?redirect=${to.fullPath}`)
+      return
+    }
+  }
+  if (toUrl.startsWith('/admin/appManage')) {
+    if (!loginUser || !loginUser.id) {
+      notify.warning('请先登录')
+      next(`/user/login?redirect=${to.fullPath}`)
+      return
+    }
+  }
+  if (toUrl.startsWith('/app/chat') || toUrl.startsWith('/app/edit')) {
+    if (!loginUser || !loginUser.id) {
+      notify.warning('请先登录')
       next(`/user/login?redirect=${to.fullPath}`)
       return
     }

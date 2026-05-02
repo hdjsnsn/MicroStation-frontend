@@ -19,7 +19,7 @@
           <a-dropdown :trigger="['click']" placement="bottomRight">
             <a class="user-dropdown-trigger" @click.prevent>
               <a-space>
-                <a-avatar :src="loginUserStore.loginUser.userAvatar" />
+                <UserAvatar :src="loginUserStore.loginUser.userAvatar" :name="loginUserStore.loginUser.userName" />
                 <span class="user-name">{{ loginUserStore.loginUser.userName ?? '无名' }}</span>
               </a-space>
             </a>
@@ -43,6 +43,7 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { logout } from '@/api/loginController'
+import UserAvatar from '@/components/UserAvatar.vue'
 import { useLoginUserStore } from '@/stores/loginUser'
 import { notify } from '@/utils/notify'
 
@@ -60,16 +61,22 @@ type MenuItem = {
 // 菜单配置项
 const originItems = ref<MenuItem[]>([
   { key: 'home', label: '首页', path: '/' },
-  { key: 'userManage', label: '管理', path: '/admin/userManage' }
+  { key: 'userManage', label: '用户管理', path: '/admin/userManage' },
+  { key: 'appManage', label: '应用管理', path: '/admin/appManage' },
 ])
 
 // 过滤菜单项
 const filterMenus = (menus = [] as MenuItem[]) => {
   return menus?.filter((menu) => {
     const menuPath = menu?.path as string
-    if (menuPath?.startsWith('/admin')) {
-      const loginUser = loginUserStore.loginUser
+    const loginUser = loginUserStore.loginUser
+    if (menuPath === '/admin/userManage') {
       if (!loginUser || loginUser.userRole !== 'admin') {
+        return false
+      }
+    }
+    if (menuPath === '/admin/appManage') {
+      if (!loginUser || !loginUser.id) {
         return false
       }
     }
@@ -86,7 +93,13 @@ const selectedKeys = computed<string[]>(() => {
     return ['home']
   }
   if (route.path.startsWith('/admin')) {
+    if (route.path.startsWith('/admin/appManage')) {
+      return ['appManage']
+    }
     return ['userManage']
+  }
+  if (route.path.startsWith('/app/')) {
+    return []
   }
   return ['home']
 })

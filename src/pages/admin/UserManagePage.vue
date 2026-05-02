@@ -23,27 +23,21 @@
         <template #bodyCell="{ column, record }">
           <template v-if="column.dataIndex === 'userAccount'">
             <!-- 账号列：仅在可能被截断时显示浅色详情 -->
-            <a-tooltip v-if="shouldShowTooltip(record.userAccount, 24)" :title="record.userAccount || '-'"
-              color="#f7f8fa" :overlay-inner-style="{ color: '#1f2937' }">
-              <div class="user-account-cell">
-                {{ record.userAccount || '-' }}
-              </div>
-            </a-tooltip>
-            <div v-else class="user-account-cell">
-              {{ record.userAccount || '-' }}
-            </div>
+            <TruncateTooltipText
+              :text="record.userAccount"
+              max-width="150px"
+              :lines="2"
+              :threshold="24"
+            />
           </template>
           <template v-else-if="column.dataIndex === 'userName'">
             <!-- 用户昵称列：仅在可能被截断时显示浅色详情 -->
-            <a-tooltip v-if="shouldShowTooltip(record.userName, 18)" :title="record.userName || '-'" color="#f7f8fa"
-              :overlay-inner-style="{ color: '#1f2937' }">
-              <div class="user-name-cell">
-                {{ record.userName || '-' }}
-              </div>
-            </a-tooltip>
-            <div v-else class="user-name-cell">
-              {{ record.userName || '-' }}
-            </div>
+            <TruncateTooltipText
+              :text="record.userName"
+              max-width="130px"
+              :lines="2"
+              :threshold="18"
+            />
           </template>
           <template v-else-if="column.dataIndex === 'userAvatar'">
             <!-- 用户头像列：统一尺寸，避免超大图片撑开表格 -->
@@ -61,19 +55,15 @@
             </div>
           </template>
           <template v-else-if="column.dataIndex === 'userProfile'">
-            <!-- 用户简介列：仅在可能被截断时显示浅色详情 -->
-            <a-tooltip v-if="shouldShowTooltip(record.userProfile, 70)" :title="record.userProfile || '-'"
-              color="#f7f8fa" :overlay-inner-style="{ color: '#1f2937' }">
-              <div class="user-profile-cell">
-                {{ record.userProfile || '-' }}
-              </div>
-            </a-tooltip>
-            <div v-else class="user-profile-cell">
-              {{ record.userProfile || '-' }}
-            </div>
+            <!-- 用户简介列：单行省略，悬停展示完整内容 -->
+            <TruncateTooltipText
+              :text="record.userProfile"
+              max-width="220px"
+              :always-tooltip="true"
+            />
           </template>
           <template v-else-if="column.dataIndex === 'createTime'">
-            {{ dayjs(record.createTime).format('YYYY-MM-DD HH:mm:ss') }}
+            {{ formatDateTime(record.createTime) }}
           </template>
           <template v-else-if="column.key === 'action'">
             <a-space>
@@ -83,6 +73,44 @@
           </template>
         </template>
       </a-table>
+
+      <a-modal
+        v-model:open="editModalOpen"
+        centered
+        title="编辑用户"
+        ok-text="保存"
+        cancel-text="取消"
+        :confirm-loading="editLoading"
+        @ok="confirmEdit"
+        @cancel="closeEditModal"
+      >
+        <a-form layout="vertical">
+          <a-form-item label="账号">
+            <a-input v-model:value="editFormState.userAccount" disabled />
+          </a-form-item>
+          <a-form-item label="用户昵称" required>
+            <a-input v-model:value="editFormState.userName" :maxlength="256" placeholder="请输入用户昵称" />
+          </a-form-item>
+          <a-form-item label="用户头像">
+            <a-input v-model:value="editFormState.userAvatar" placeholder="请输入头像图片 URL" />
+          </a-form-item>
+          <a-form-item label="用户简介">
+            <a-textarea
+              v-model:value="editFormState.userProfile"
+              :auto-size="{ minRows: 3, maxRows: 5 }"
+              :maxlength="1000"
+              placeholder="请输入用户简介"
+            />
+          </a-form-item>
+          <a-form-item label="用户角色">
+            <a-select v-model:value="editFormState.userRole" placeholder="请选择用户角色">
+              <a-select-option value="user">普通用户</a-select-option>
+              <a-select-option value="admin">管理员</a-select-option>
+            </a-select>
+          </a-form-item>
+        </a-form>
+      </a-modal>
+
       <!-- 删除确认弹窗（居中 + 遮罩点击关闭 + 自定义左右按钮） -->
       <a-modal v-model:open="deleteModalOpen" centered :maskClosable="true"
         :maskStyle="{ backgroundColor: 'rgba(0, 0, 0, 0.55)' }" :closable="true" class="delete-confirm-modal"
@@ -110,10 +138,11 @@
 <script lang="ts" setup>
 /// <reference path="../../api/typings.d.ts" />
 import { computed, onMounted, reactive, ref } from 'vue'
-import { deleteUser, listUserVoByPage } from '@/api/userController'
-import dayjs from 'dayjs'
+import { deleteUser, listUserVoByPage, updateUser } from '@/api/userController'
+import TruncateTooltipText from '@/components/TruncateTooltipText.vue'
 import { notify } from '@/utils/notify'
 import { useLoginUserStore } from '@/stores/loginUser'
+import { formatDateTime } from '@/utils/date'
 type UserVO = API.UserVO
 /** 表头与单元格均水平居中 */
 const colCenter = { align: 'center' as const }
@@ -171,14 +200,23 @@ const columns = [
 
 const data = ref<API.UserVO[]>([])
 const total = ref(0)
+const editModalOpen = ref(false)
+const editLoading = ref(false)
+const editTarget = ref<UserVO | null>(null)
 
-/**
- * 文本较短时不显示详情悬浮，避免无意义的 tooltip。
- * 这里使用长度阈值做轻量判断，满足列表场景性能与体验。
- */
-const shouldShowTooltip = (text: string | null | undefined, threshold: number) => {
-  return (text ?? '').trim().length > threshold
-}
+const editFormState = reactive<{
+  userAccount: string
+  userName: string
+  userAvatar: string
+  userProfile: string
+  userRole: string
+}>({
+  userAccount: '',
+  userName: '',
+  userAvatar: '',
+  userProfile: '',
+  userRole: 'user',
+})
 
 // 搜索条件
 const searchParams = reactive<API.UserQueryRequest>({
@@ -227,9 +265,54 @@ const doSearch = () => {
   fetchData()
 }
 
-/** 修改用户（可在此打开弹窗或跳转编辑页） */
+/** 打开编辑弹窗 */
 const handleEdit = (record: UserVO) => {
-  notify.info(`编辑用户：${record.userAccount ?? record.id}`)
+  editTarget.value = record
+  editModalOpen.value = true
+  editFormState.userAccount = record.userAccount || ''
+  editFormState.userName = record.userName || ''
+  editFormState.userAvatar = record.userAvatar || ''
+  editFormState.userProfile = record.userProfile || ''
+  editFormState.userRole = record.userRole || 'user'
+}
+
+/** 关闭编辑弹窗 */
+const closeEditModal = () => {
+  editModalOpen.value = false
+  editLoading.value = false
+  editTarget.value = null
+}
+
+/** 确认编辑 */
+const confirmEdit = async () => {
+  if (!editTarget.value?.id) {
+    return
+  }
+  if (!editFormState.userName.trim()) {
+    notify.warning('请输入用户昵称')
+    return
+  }
+  editLoading.value = true
+  try {
+    const res = await updateUser({
+      id: String(editTarget.value.id),
+      userName: editFormState.userName.trim(),
+      userAvatar: editFormState.userAvatar.trim() || undefined,
+      userProfile: editFormState.userProfile.trim() || undefined,
+      userRole: editFormState.userRole,
+    })
+    if (res.data?.code === 0) {
+      notify.success('用户信息更新成功')
+      closeEditModal()
+      await fetchData()
+      return
+    }
+    notify.error(res.data?.message || '更新失败，请重试')
+  } catch {
+    notify.error('更新失败，请稍后重试')
+  } finally {
+    editLoading.value = false
+  }
 }
 
 /** 删除用户 */
@@ -255,13 +338,13 @@ const handleDelete = async (record: UserVO) => {
     notify.error('删除失败：用户 ID 缺失')
     return false
   }
-  if (id == loginUserStore.loginUser.id) {
+  if (id === loginUserStore.loginUser.id) {
     notify.error('删除失败：无法删除正在登录的用户')
     return false
   }
 
   try {
-    const res = await deleteUser({ id })
+    const res = await deleteUser({ id: String(id) })
     if (res.data?.code === 0) {
       notify.success(`删除用户：${record.userAccount ?? id} 成功`)
       await fetchData()
@@ -322,48 +405,6 @@ onMounted(() => {
 .user-manage-table :deep(.ant-table-tbody > tr > td) {
   text-align: center;
   vertical-align: middle;
-}
-
-/* 账号列：宽度较小，限制 2 行 */
-.user-account-cell {
-  max-width: 150px;
-  margin: 0 auto;
-  overflow: hidden;
-  text-align: left;
-  line-height: 20px;
-  display: -webkit-box;
-  line-clamp: 2;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  word-break: break-word;
-}
-
-/* 用户昵称列：宽度中等，限制 2 行 */
-.user-name-cell {
-  max-width: 130px;
-  margin: 0 auto;
-  overflow: hidden;
-  text-align: left;
-  line-height: 20px;
-  display: -webkit-box;
-  line-clamp: 2;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  word-break: break-word;
-}
-
-/* 用户简介列：宽度更大，限制 3 行 */
-.user-profile-cell {
-  max-width: 220px;
-  margin: 0 auto;
-  overflow: hidden;
-  text-align: left;
-  line-height: 20px;
-  display: -webkit-box;
-  line-clamp: 3;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  word-break: break-word;
 }
 
 /* 用户头像列：限制尺寸并保持居中 */

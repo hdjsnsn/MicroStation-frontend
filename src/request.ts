@@ -1,9 +1,11 @@
 import axios from 'axios'
 import { notify } from '@/utils/notify'
 
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+
 // 创建 Axios 实例
 const myAxios = axios.create({
-  baseURL: 'http://localhost:8080/api',
+  baseURL: apiBaseUrl,
   timeout: 60000,
   withCredentials: true,
 })

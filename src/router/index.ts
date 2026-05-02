@@ -5,6 +5,9 @@ import LoginPage from '@/pages/login/LoginPage.vue'
 import RegisterPage from '@/pages/login/RegisterPage.vue'
 import UserAuthLayout from '@/pages/login/UserAuthLayout.vue'
 import UserManagePage from '@/pages/admin/UserManagePage.vue'
+import AppManagePage from '@/pages/admin/AppManagePage.vue'
+import AppChatPage from '@/pages/app/AppChatPage.vue'
+import AppEditPage from '@/pages/app/AppEditPage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -34,6 +37,21 @@ const router = createRouter({
       path: '/admin/userManage',
       name: '用户管理',
       component: UserManagePage,
+    },
+    {
+      path: '/admin/appManage',
+      name: '应用管理',
+      component: AppManagePage,
+    },
+    {
+      path: '/app/chat/:id',
+      name: '应用对话',
+      component: AppChatPage,
+    },
+    {
+      path: '/app/edit/:id',
+      name: '应用信息',
+      component: AppEditPage,
     },
   ],
 })

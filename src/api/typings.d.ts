@@ -1,4 +1,86 @@
 declare namespace API {
+  type adminGetAppByIdParams = {
+    idStr: string
+  }
+
+  type AppAddRequest = {
+    appName?: string
+    initPrompt?: string
+  }
+
+  type AppAdminUpdateRequest = {
+    id?: string
+    appName?: string
+    cover?: string
+    priority?: number
+  }
+
+  type AppDeployRequest = {
+    appid?: number
+  }
+
+  type AppEntity = {
+    id?: number
+    appName?: string
+    cover?: string
+    initPrompt?: string
+    codeGenType?: string
+    deployKey?: string
+    deployedTime?: string
+    priority?: number
+    userId?: number
+    editTime?: string
+    createTime?: string
+    updateTime?: string
+    isDelete?: number
+  }
+
+  type AppQueryRequest = {
+    pageNum?: number
+    pageSize?: number
+    sortField?: string
+    sortOrder?: string
+    id?: string
+    appName?: string
+    userId?: string
+    codeGenType?: string
+    priority?: number
+    deployKey?: string
+  }
+
+  type AppUpdateRequest = {
+    id?: string
+    appName?: string
+    cover?: string
+  }
+
+  type AppVO = {
+    id?: number
+    appName?: string
+    cover?: string
+    initPrompt?: string
+    codeGenType?: string
+    deployKey?: string
+    deployedTime?: string
+    priority?: number
+    userId?: number
+    createTime?: string
+    updateTime?: string
+    user?: UserVO
+  }
+
+  type BaseResponseAppEntity = {
+    code?: number
+    data?: AppEntity
+    message?: string
+  }
+
+  type BaseResponseAppVO = {
+    code?: number
+    data?: AppVO
+    message?: string
+  }
+
   type BaseResponseBoolean = {
     code?: number
     data?: boolean
@@ -17,9 +99,21 @@ declare namespace API {
     message?: string
   }
 
+  type BaseResponsePageAppVO = {
+    code?: number
+    data?: PageAppVO
+    message?: string
+  }
+
   type BaseResponsePageUserVO = {
     code?: number
     data?: PageUserVO
+    message?: string
+  }
+
+  type BaseResponseString = {
+    code?: number
+    data?: string
     message?: string
   }
 
@@ -35,16 +129,25 @@ declare namespace API {
     message?: string
   }
 
+  type chatToGenCodeParams = {
+    appIdStr: string
+    message: string
+  }
+
   type DeleteRequest = {
-    id?: number
+    id?: string
+  }
+
+  type getAppVOByIdParams = {
+    idStr: string
   }
 
   type getUserByIdParams = {
-    id: number
+    idStr: string
   }
 
   type getUserVOByIdParams = {
-    id: number
+    idStr: string
   }
 
   type LoginUserVO = {
@@ -58,6 +161,15 @@ declare namespace API {
     updateTime?: string
   }
 
+  type PageAppVO = {
+    records?: AppVO[]
+    pageNumber?: number
+    pageSize?: number
+    totalPage?: number
+    totalRow?: number
+    optimizeCountQuery?: boolean
+  }
+
   type PageUserVO = {
     records?: UserVO[]
     pageNumber?: number
@@ -65,6 +177,12 @@ declare namespace API {
     totalPage?: number
     totalRow?: number
     optimizeCountQuery?: boolean
+  }
+
+  type ServerSentEventString = true
+
+  type serveStaticResourceParams = {
+    deployKey: string
   }
 
   type UserAddRequest = {
@@ -100,7 +218,7 @@ declare namespace API {
     pageSize?: number
     sortField?: string
     sortOrder?: string
-    id?: number
+    id?: string
     userName?: string
     userAccount?: string
     userProfile?: string
@@ -115,7 +233,7 @@ declare namespace API {
   }
 
   type UserUpdateRequest = {
-    id?: number
+    id?: string
     userName?: string
     userAvatar?: string
     userProfile?: string
