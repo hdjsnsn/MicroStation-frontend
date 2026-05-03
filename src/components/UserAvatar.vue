@@ -30,5 +30,3 @@ const avatarInitial = computed(() => {
   return name ? name.slice(0, 1) : props.fallback
 })
 </script>
-
-<style scoped></style>

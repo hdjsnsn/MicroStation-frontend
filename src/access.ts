@@ -25,6 +25,13 @@ router.beforeEach(async (to, from, next) => {
       return
     }
   }
+  if (toUrl.startsWith('/admin/chatManage')) {
+    if (!loginUser || loginUser.userRole !== 'admin') {
+      notify.error('没有权限')
+      next(`/user/login?redirect=${to.fullPath}`)
+      return
+    }
+  }
   if (toUrl.startsWith('/admin/appManage')) {
     if (!loginUser || !loginUser.id) {
       notify.warning('请先登录')

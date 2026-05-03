@@ -6,7 +6,7 @@
         <img class="hero-logo" src="@/assets/logo.png" alt="logo" />
         呈所想
       </div>
-      <div class="hero-subtitle">与 AI 对话轻松创建应用和网站</div>
+      <div class="hero-subtitle">与 AI 对话轻松创建网站</div>
 
       <div class="prompt-card">
         <a-textarea v-model:value="promptText" :auto-size="{ minRows: 5, maxRows: 8 }" class="prompt-input"
@@ -222,12 +222,7 @@ const handleCreateApp = async () => {
     if (res.data.code === 0 && res.data.data) {
       notify.success('应用创建成功，正在进入对话页')
       promptText.value = ''
-      await router.push({
-        path: `/app/chat/${res.data.data}`,
-        query: {
-          autoPrompt: '1',
-        },
-      })
+      await router.push(`/app/chat/${res.data.data}`)
       return
     }
     notify.error(res.data.message || '创建应用失败')

@@ -161,7 +161,6 @@ const handleSubmit = async () => {
     const res = await updateApp({
       id: appId,
       appName: formState.value.appName.trim(),
-      cover: formState.value.cover.trim() || undefined,
     })
     if (res.data.code === 0) {
       notify.success('应用信息更新成功')

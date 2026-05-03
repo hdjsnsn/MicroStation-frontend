@@ -22,6 +22,12 @@
     <div ref="chatContentRef" class="chat-content" :style="chatContentStyle">
       <section class="chat-panel">
         <div ref="messageContainerRef" class="message-list">
+          <div v-if="loadingHistory" class="message-history-loading">正在加载历史消息...</div>
+          <div v-if="historyInitialized && hasMoreHistory" class="message-history-toolbar">
+            <a-button type="link" :loading="loadingMoreHistory" @click="loadMoreHistory">
+              加载更多
+            </a-button>
+          </div>
           <div
             v-for="message in messages"
             :key="message.id"
@@ -44,7 +50,7 @@
             </div>
           </div>
           <a-empty
-            v-if="!messages.length"
+            v-if="historyInitialized && !messages.length"
             class="message-empty"
             description="输入你的需求，AI 会开始为你生成应用"
           />
@@ -102,7 +108,7 @@
           <a-empty
             v-else
             :image="Empty.PRESENTED_IMAGE_SIMPLE"
-            description="完成一次代码生成后，这里会展示最新的网站效果"
+            description="完成一次代码生成或已有至少 2 条对话记录后，这里会展示最新的网站效果"
           />
         </div>
       </section>
@@ -209,16 +215,13 @@ import {
   getAppVoById,
   updateApp,
 } from '@/api/appController'
+import request from '@/request'
 import { useLoginUserStore } from '@/stores/loginUser'
 import { buildAppPreviewUrl } from '@/utils/app'
+import { mapChatHistoryToMessage } from '@/utils/chatHistory'
+import type { ChatMessage } from '@/utils/chatHistory'
 import { formatDateTime } from '@/utils/date'
 import { notify } from '@/utils/notify'
-
-type ChatMessage = {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-}
 
 type StreamChunkPayload =
   | string
@@ -254,10 +257,18 @@ const RESIZER_WIDTH = 12
 const MIN_CHAT_PANEL_WIDTH = 320
 const MIN_PREVIEW_PANEL_WIDTH = 360
 const DESKTOP_BREAKPOINT = 992
+const HISTORY_PAGE_SIZE = 10
 
 const appDetail = ref<API.AppVO>()
 const messageInput = ref('')
 const messages = ref<ChatMessage[]>([])
+const totalHistoryCount = ref(0)
+const historyInitialized = ref(false)
+const loadingHistory = ref(false)
+const loadingMoreHistory = ref(false)
+const hasMoreHistory = ref(false)
+const oldestHistoryCreateTime = ref('')
+const sessionGeneratedHistoryCount = ref(0)
 const streaming = ref(false)
 const deploying = ref(false)
 const detailModalOpen = ref(false)
@@ -275,6 +286,7 @@ const viewportWidth = ref(window.innerWidth)
 const resizing = ref(false)
 
 let currentStreamController: AbortController | null = null
+const loadedHistoryMessageIds = new Set<string>()
 
 const isDesktopLayout = computed(() => viewportWidth.value > DESKTOP_BREAKPOINT)
 
@@ -441,7 +453,7 @@ const fetchAppDetail = async () => {
         cover: res.data.data.cover || '',
         priority: res.data.data.priority ?? 0,
       }
-      previewUrl.value = buildAppPreviewUrl(appDetail.value)
+      syncPreviewUrlByHistory()
       return
     }
     notify.error(res.data.message || '获取应用详情失败')
@@ -459,6 +471,110 @@ const closeCurrentStream = () => {
 }
 
 /**
+ * 根据历史消息数量同步预览地址。
+ */
+const syncPreviewUrlByHistory = () => {
+  if (appDetail.value?.deployKey || totalHistoryCount.value >= 2) {
+    previewUrl.value = buildAppPreviewUrl(appDetail.value)
+    return
+  }
+  previewUrl.value = ''
+}
+
+/**
+ * 合并历史消息，保持创建时间升序。
+ */
+const mergeHistoryMessages = (
+  historyMessages: ChatMessage[],
+  mode: 'replace' | 'prepend'
+) => {
+  const sortedMessages = [...historyMessages].sort((a, b) => {
+    const left = new Date(a.createTime || '').getTime()
+    const right = new Date(b.createTime || '').getTime()
+    return left - right
+  })
+  if (mode === 'replace') {
+    messages.value = sortedMessages
+    return
+  }
+  const currentMessageMap = new Map(messages.value.map((item) => [item.id, item]))
+  sortedMessages.forEach((item) => currentMessageMap.set(item.id, item))
+  const currentIds = new Set(messages.value.map((item) => item.id))
+  const prependMessages = sortedMessages.filter((item) => !currentIds.has(item.id))
+  messages.value = [...prependMessages, ...messages.value]
+}
+
+/**
+ * 拉取一页历史消息。
+ */
+const fetchChatHistoryPage = async (loadMore = false) => {
+  if (!appId) {
+    return
+  }
+  if (loadMore) {
+    loadingMoreHistory.value = true
+  } else {
+    loadingHistory.value = true
+  }
+  try {
+    const res = await request<API.BaseResponsePageChatHistoryVO>(`/chatHistory/app/${appId}`, {
+      method: 'GET',
+      params: {
+        pageSize: HISTORY_PAGE_SIZE,
+        lastCreateTime: loadMore ? oldestHistoryCreateTime.value || undefined : undefined,
+      },
+    })
+    if (res.data.code === 0 && res.data.data) {
+      const pageData = res.data.data
+      const records = pageData.records ?? []
+      const nextMessages = records.map(mapChatHistoryToMessage)
+      if (!loadMore) {
+        loadedHistoryMessageIds.clear()
+      }
+      nextMessages.forEach((item) => loadedHistoryMessageIds.add(item.id))
+      mergeHistoryMessages(nextMessages, loadMore ? 'prepend' : 'replace')
+      totalHistoryCount.value = Number(pageData.totalRow ?? 0)
+      oldestHistoryCreateTime.value = messages.value[0]?.createTime || ''
+      hasMoreHistory.value = loadedHistoryMessageIds.size < totalHistoryCount.value && records.length > 0
+      historyInitialized.value = true
+      syncPreviewUrlByHistory()
+      if (!loadMore) {
+        await scrollToBottom()
+      }
+      return
+    }
+    notify.error(res.data.message || '加载对话历史失败')
+  } catch {
+    notify.error('加载对话历史失败，请稍后重试')
+  } finally {
+    if (loadMore) {
+      loadingMoreHistory.value = false
+    } else {
+      loadingHistory.value = false
+      historyInitialized.value = true
+    }
+  }
+}
+
+/**
+ * 加载更多历史消息。
+ */
+const loadMoreHistory = async () => {
+  if (!hasMoreHistory.value || loadingMoreHistory.value) {
+    return
+  }
+  const previousScrollHeight = messageContainerRef.value?.scrollHeight ?? 0
+  const previousScrollTop = messageContainerRef.value?.scrollTop ?? 0
+  await fetchChatHistoryPage(true)
+  await nextTick()
+  if (!messageContainerRef.value) {
+    return
+  }
+  const nextScrollHeight = messageContainerRef.value.scrollHeight
+  messageContainerRef.value.scrollTop = nextScrollHeight - previousScrollHeight + previousScrollTop
+}
+
+/**
  * 添加消息。
  */
 const appendMessage = (role: ChatMessage['role'], content: string) => {
@@ -466,6 +582,7 @@ const appendMessage = (role: ChatMessage['role'], content: string) => {
     id: `${Date.now()}-${Math.random()}`,
     role,
     content,
+    createTime: new Date().toISOString(),
   }
   messages.value.push(message)
   scrollToBottom()
@@ -575,15 +692,27 @@ const sendMessage = async (presetMessage?: string) => {
   const abortController = new AbortController()
   currentStreamController = abortController
 
-  const finishStream = () => {
+  const finishStream = async () => {
     if (streamCompleted) {
       return
     }
     streamCompleted = true
     streaming.value = false
     closeCurrentStream()
-    previewUrl.value = buildAppPreviewUrl(appDetail.value)
-    previewFrameKey.value += 1
+    if (hasReceivedChunk && assistantMessage.content.trim()) {
+      sessionGeneratedHistoryCount.value += 2
+      totalHistoryCount.value = Math.max(
+        totalHistoryCount.value,
+        loadedHistoryMessageIds.size + sessionGeneratedHistoryCount.value
+      )
+    }
+    syncPreviewUrlByHistory()
+    if (previewUrl.value) {
+      previewFrameKey.value += 1
+    }
+    if (hasReceivedChunk && assistantMessage.content.trim()) {
+      await deployCurrentApp(false)
+    }
   }
 
   try {
@@ -613,7 +742,7 @@ const sendMessage = async (presetMessage?: string) => {
             await scrollToBottom()
           }
         }
-        finishStream()
+        await finishStream()
         break
       }
 
@@ -630,7 +759,7 @@ const sendMessage = async (presetMessage?: string) => {
           hasReceivedChunk = true
           await scrollToBottom()
         }
-        finishStream()
+        await finishStream()
         break
       }
 
@@ -662,29 +791,28 @@ const sendMessage = async (presetMessage?: string) => {
       assistantMessage.content = '生成失败，请稍后重试'
       notify.error('生成失败，请稍后重试')
     }
-    finishStream()
+    await finishStream()
   }
 }
 
 /**
- * 创建后首次进入时，自动发送初始提示词。
+ * 首次进入自己的应用且无历史消息时，自动发送初始提示词。
  */
 const tryAutoSendInitPrompt = async () => {
-  if (route.query.autoPrompt !== '1' || !appDetail.value?.initPrompt) {
+  if (!isOwner.value || !appDetail.value?.initPrompt || messages.value.length > 0) {
     return
   }
   await sendMessage(appDetail.value.initPrompt)
-  await router.replace({
-    path: route.path,
-    query: {},
-  })
 }
 
 /**
  * 部署应用并展示访问地址。
  */
-const handleDeploy = async () => {
+const deployCurrentApp = async (showSuccessModal = true) => {
   if (!appDetail.value?.id) {
+    return
+  }
+  if (deploying.value) {
     return
   }
   deploying.value = true
@@ -693,11 +821,21 @@ const handleDeploy = async () => {
       appid: appDetail.value.id,
     })
     if (res.data.code === 0 && res.data.data) {
-      deployUrl.value = res.data.data
-      previewUrl.value = res.data.data
+      const fallbackDeployUrl = res.data.data
+      deployUrl.value = fallbackDeployUrl
+      await fetchAppDetail()
+      const latestPreviewUrl = buildAppPreviewUrl(appDetail.value)
+      if (latestPreviewUrl) {
+        deployUrl.value = latestPreviewUrl
+        previewUrl.value = latestPreviewUrl
+      } else {
+        previewUrl.value = fallbackDeployUrl
+      }
       previewFrameKey.value += 1
-      deployModalOpen.value = true
-      notify.success('部署成功')
+      if (showSuccessModal) {
+        deployModalOpen.value = true
+        notify.success('部署成功')
+      }
       return
     }
     notify.error(res.data.message || '部署失败')
@@ -706,6 +844,13 @@ const handleDeploy = async () => {
   } finally {
     deploying.value = false
   }
+}
+
+/**
+ * 手动部署应用。
+ */
+const handleDeploy = async () => {
+  await deployCurrentApp(true)
 }
 
 /**
@@ -849,7 +994,6 @@ const handleEditSubmit = async () => {
     const res = await updateApp({
       id: String(appDetail.value.id),
       appName: editFormState.value.appName.trim(),
-      cover: editFormState.value.cover.trim() || undefined,
     })
     if (res.data.code === 0) {
       notify.success('应用信息更新成功')
@@ -900,6 +1044,7 @@ const goHome = () => {
 
 onMounted(async () => {
   await fetchAppDetail()
+  await fetchChatHistoryPage()
   await tryAutoSendInitPrompt()
   syncPanelWidth()
   window.addEventListener('resize', syncPanelWidth)
@@ -991,6 +1136,22 @@ onBeforeUnmount(() => {
   flex: 1;
   overflow-y: auto;
   padding-right: 4px;
+}
+
+.message-history-loading,
+.message-history-toolbar {
+  display: flex;
+  justify-content: center;
+}
+
+.message-history-loading {
+  margin-bottom: 8px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.message-history-toolbar {
+  margin-bottom: 8px;
 }
 
 .message-row {

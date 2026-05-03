@@ -1,4 +1,4 @@
-import { DEFAULT_CODE_GEN_TYPE, getCodeGenTypeLabel } from '@/constants/codeGenType'
+import { DEFAULT_CODE_GEN_TYPE } from '@/constants/codeGenType'
 
 type PreviewableApp = Pick<API.AppVO, 'id' | 'deployKey' | 'codeGenType'> | null | undefined
 
@@ -22,5 +22,3 @@ export const buildAppPreviewUrl = (app: PreviewableApp) => {
     ? `${apiBaseUrl}/static/${app.codeGenType || DEFAULT_CODE_GEN_TYPE}_${app.id}/`
     : ''
 }
-
-export { getCodeGenTypeLabel }

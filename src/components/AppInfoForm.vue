@@ -117,5 +117,3 @@ const deployKeyText = computed(() => props.app?.deployKey || '未部署')
 const deployedTimeText = computed(() => props.app?.deployedTime || '未部署')
 const codeGenLabel = computed(() => getCodeGenTypeLabel(props.app?.codeGenType, 'full'))
 </script>
-
-<style scoped></style>

@@ -63,6 +63,7 @@ const originItems = ref<MenuItem[]>([
   { key: 'home', label: '首页', path: '/' },
   { key: 'userManage', label: '用户管理', path: '/admin/userManage' },
   { key: 'appManage', label: '应用管理', path: '/admin/appManage' },
+  { key: 'chatManage', label: '对话管理', path: '/admin/chatManage' },
 ])
 
 // 过滤菜单项
@@ -71,6 +72,11 @@ const filterMenus = (menus = [] as MenuItem[]) => {
     const menuPath = menu?.path as string
     const loginUser = loginUserStore.loginUser
     if (menuPath === '/admin/userManage') {
+      if (!loginUser || loginUser.userRole !== 'admin') {
+        return false
+      }
+    }
+    if (menuPath === '/admin/chatManage') {
       if (!loginUser || loginUser.userRole !== 'admin') {
         return false
       }
@@ -95,6 +101,9 @@ const selectedKeys = computed<string[]>(() => {
   if (route.path.startsWith('/admin')) {
     if (route.path.startsWith('/admin/appManage')) {
       return ['appManage']
+    }
+    if (route.path.startsWith('/admin/chatManage')) {
+      return ['chatManage']
     }
     return ['userManage']
   }

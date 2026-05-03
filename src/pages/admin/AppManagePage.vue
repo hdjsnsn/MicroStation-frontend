@@ -356,7 +356,6 @@ const confirmEdit = async () => {
       : await updateApp({
         id: String(editTarget.value.id),
         appName: editFormState.value.appName.trim(),
-        cover: editFormState.value.cover.trim() || undefined,
       })
     if (res.data.code === 0) {
       notify.success('应用信息更新成功')
