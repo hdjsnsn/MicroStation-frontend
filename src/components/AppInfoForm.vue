@@ -6,13 +6,8 @@
     </a-form-item>
 
     <!-- 可编辑扩展字段 -->
-    <a-row :gutter="16">
+    <a-row v-if="isAdmin" :gutter="16">
       <a-col :xs="24" :md="showReadonlyInfo ? 12 : 24">
-        <a-form-item label="应用封面">
-          <a-input v-model:value="coverValue" :disabled="!canEdit" placeholder="请输入应用封面 URL" />
-        </a-form-item>
-      </a-col>
-      <a-col v-if="isAdmin" :xs="24" :md="showReadonlyInfo ? 12 : 24">
         <a-form-item label="精选">
           <a-switch v-model:checked="featuredValue" :disabled="!canEdit" checked-children="已精选"
             un-checked-children="未精选" />
@@ -62,7 +57,6 @@ import { getCodeGenTypeLabel } from '@/constants/codeGenType'
 
 type AppInfoFormState = {
   appName: string
-  cover: string
   priority: number
 }
 
@@ -99,11 +93,6 @@ const updateField = <K extends keyof AppInfoFormState>(key: K, value: AppInfoFor
 const appNameValue = computed({
   get: () => props.modelValue.appName,
   set: (value: string) => updateField('appName', value),
-})
-
-const coverValue = computed({
-  get: () => props.modelValue.cover,
-  set: (value: string) => updateField('cover', value),
 })
 
 const featuredValue = computed({

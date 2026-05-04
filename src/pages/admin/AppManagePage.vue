@@ -202,11 +202,9 @@ const searchParams = reactive<API.AppQueryRequest>({
 
 const editFormState = ref<{
   appName: string
-  cover: string
   priority: number
 }>({
   appName: '',
-  cover: '',
   priority: 0,
 })
 
@@ -288,7 +286,6 @@ const handleEdit = async (record: AppVO) => {
   editModalOpen.value = true
   editFormState.value = {
     appName: record.appName || '',
-    cover: record.cover || '',
     priority: record.priority ?? 0,
   }
 
@@ -299,7 +296,6 @@ const handleEdit = async (record: AppVO) => {
       editFormState.value = {
         ...editFormState.value,
         appName: appVoRes.data.data.appName || '',
-        cover: appVoRes.data.data.cover || '',
         priority: appVoRes.data.data.priority ?? 0,
       }
     } else {
@@ -311,7 +307,6 @@ const handleEdit = async (record: AppVO) => {
       if (adminRes.data.code === 0 && adminRes.data.data) {
         editFormState.value = {
           ...editFormState.value,
-          cover: adminRes.data.data.cover || '',
           priority: adminRes.data.data.priority ?? 0,
         }
         return
@@ -350,7 +345,6 @@ const confirmEdit = async () => {
       ? await adminUpdateApp({
         id: String(editTarget.value.id),
         appName: editFormState.value.appName.trim(),
-        cover: editFormState.value.cover.trim() || undefined,
         priority: editFormState.value.priority,
       })
       : await updateApp({

@@ -4,6 +4,7 @@
 export const CODE_GEN_TYPE = {
   HTML: 'html',
   MULTI_FILE: 'multi_file',
+  VUE: "vue"
 } as const
 
 export type CodeGenType = (typeof CODE_GEN_TYPE)[keyof typeof CODE_GEN_TYPE]
@@ -27,6 +28,10 @@ export const CODE_GEN_TYPE_LABEL_MAP: Record<
   [CODE_GEN_TYPE.MULTI_FILE]: {
     short: '多文件',
     full: '多文件模式',
+  },
+  [CODE_GEN_TYPE.VUE]: {
+    short: 'vue',
+    full: 'vue模式',
   },
 }
 

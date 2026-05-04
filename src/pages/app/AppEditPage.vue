@@ -56,11 +56,9 @@ const saving = ref(false)
 
 const formState = ref<{
   appName: string
-  cover: string
   priority: number
 }>({
   appName: '',
-  cover: '',
   priority: 0,
 })
 
@@ -105,7 +103,6 @@ const fetchAppDetail = async () => {
     formState.value = {
       ...formState.value,
       appName: appVo.value.appName || '',
-      cover: appVo.value.cover || '',
     }
 
     if (isAdmin.value) {
@@ -113,7 +110,6 @@ const fetchAppDetail = async () => {
       if (adminRes.data.code === 0 && adminRes.data.data) {
         formState.value = {
           ...formState.value,
-          cover: adminRes.data.data.cover || '',
           priority: adminRes.data.data.priority ?? 0,
         }
       }
@@ -146,7 +142,6 @@ const handleSubmit = async () => {
       const res = await adminUpdateApp({
         id: appId,
         appName: formState.value.appName.trim(),
-        cover: formState.value.cover.trim() || undefined,
         priority: formState.value.priority,
       })
       if (res.data.code === 0) {

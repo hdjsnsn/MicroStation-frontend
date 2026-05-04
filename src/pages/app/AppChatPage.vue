@@ -415,11 +415,9 @@ const currentUserInitial = computed(() => {
 
 const editFormState = ref<{
   appName: string
-  cover: string
   priority: number
 }>({
   appName: '',
-  cover: '',
   priority: 0,
 })
 
@@ -450,7 +448,6 @@ const fetchAppDetail = async () => {
       editFormState.value = {
         ...editFormState.value,
         appName: res.data.data.appName || '',
-        cover: res.data.data.cover || '',
         priority: res.data.data.priority ?? 0,
       }
       syncPreviewUrlByHistory()
@@ -684,6 +681,7 @@ const sendMessage = async (presetMessage?: string) => {
   const assistantMessage = appendMessage('assistant', '')
   let streamCompleted = false
   let hasReceivedChunk = false
+  let streamFinishedNormally = false
 
   const query = new URLSearchParams({
     appIdStr: String(appDetail.value.id),
@@ -710,7 +708,7 @@ const sendMessage = async (presetMessage?: string) => {
     if (previewUrl.value) {
       previewFrameKey.value += 1
     }
-    if (hasReceivedChunk && assistantMessage.content.trim()) {
+    if (streamFinishedNormally) {
       await deployCurrentApp(false)
     }
   }
@@ -742,6 +740,7 @@ const sendMessage = async (presetMessage?: string) => {
             await scrollToBottom()
           }
         }
+        streamFinishedNormally = true
         await finishStream()
         break
       }
@@ -759,6 +758,7 @@ const sendMessage = async (presetMessage?: string) => {
           hasReceivedChunk = true
           await scrollToBottom()
         }
+        streamFinishedNormally = true
         await finishStream()
         break
       }
@@ -920,7 +920,6 @@ const openEditModal = async () => {
   editModalOpen.value = true
   editFormState.value = {
     appName: appDetail.value.appName || '',
-    cover: appDetail.value.cover || '',
     priority: appDetail.value.priority ?? 0,
   }
   if (!isAdmin.value) {
@@ -931,7 +930,6 @@ const openEditModal = async () => {
     if (res.data.code === 0 && res.data.data) {
       editFormState.value = {
         appName: res.data.data.appName || '',
-        cover: res.data.data.cover || '',
         priority: res.data.data.priority ?? 0,
       }
       return
@@ -979,7 +977,6 @@ const handleEditSubmit = async () => {
       const res = await adminUpdateApp({
         id: String(appDetail.value.id),
         appName: editFormState.value.appName.trim(),
-        cover: editFormState.value.cover.trim() || undefined,
         priority: editFormState.value.priority,
       })
       if (res.data.code === 0) {
