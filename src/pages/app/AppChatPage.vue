@@ -822,15 +822,10 @@ const deployCurrentApp = async (showSuccessModal = true) => {
     })
     if (res.data.code === 0 && res.data.data) {
       const fallbackDeployUrl = res.data.data
-      deployUrl.value = fallbackDeployUrl
       await fetchAppDetail()
       const latestPreviewUrl = buildAppPreviewUrl(appDetail.value)
-      if (latestPreviewUrl) {
-        deployUrl.value = latestPreviewUrl
-        previewUrl.value = latestPreviewUrl
-      } else {
-        previewUrl.value = fallbackDeployUrl
-      }
+      deployUrl.value = latestPreviewUrl || fallbackDeployUrl
+      previewUrl.value = latestPreviewUrl || fallbackDeployUrl
       previewFrameKey.value += 1
       if (showSuccessModal) {
         deployModalOpen.value = true
